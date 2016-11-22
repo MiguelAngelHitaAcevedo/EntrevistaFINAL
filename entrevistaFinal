@@ -1,0 +1,131 @@
+//Autor: Miguel Angel Hita Acevedo
+/*
+Un programa que recibe la información del sheet, el cual ha almacenado las respuestas de un formulario.
+La finalidad de este script es que saque por pantalla un aviso si se va a borrar un usuario(en caso de que este
+haya marcado una respuesta que se considere descalificatoria), en caso de no haber sido eliminado, se marca en verde
+si ha elegido alguna de las respuestas clave para haerlo más apto. En el enviaCorreo, se enviaría el correo de los más aptos,
+pero si no encuentra los marcados, lo envía de todos.
+*/
+function onOpen() {
+  //Opciones para actualizar tabla (o sea, para que se pueda ejecutar el programa desde la hoja de calculo)
+  SpreadsheetApp.getUi() // Asignamos a la interface del sheet
+      .createMenu('Opciones')
+      .addItem('Actualizar tabla', 'Entrevista')
+      .addItem('Limpiar tabla','limpiarSheet')
+      .addItem('Envía correo','enviaCorreo')
+      .addToUi();
+}
+
+function Entrevista(){
+  var ui = SpreadsheetApp.getUi();//El interfaz de usuario
+  var sps=SpreadsheetApp.openById("1wflD94N2n-tJ_VzpBpdDV5EKx4bgz_zwO5ihCEddeMc");//Ubicación del sheet
+  var sheet=sps.getSheets();//Referencia a las hojas del sheet
+  var rows=sheet[0].getDataRange();//Definimos la hoja en la que vamos a trabajar y almacenamos los datos de dicha hoja
+    var numRows=rows.getNumRows()-1;//Numero de datos (o sea, numero de filas), -1 para quitar la marca temporal
+    var values=rows.getValues();//Valores almacaenados en cada columna
+  //Hasta aqui hemos definido el sheet en el que vamos a trabajar y los datos que lo contienen
+  var i;
+  var range;
+  var esApto;
+  var mensaje;
+  var nomApes;
+  var enEquipo;//enEquipo y normas son variables declaradas por claridad de codigo
+  var normas;
+  //Hemos definido las variables que vamos a usar en el bucle for
+  for(i=1;i<=numRows;i=i+1){//Recorremos las filas (o sea, los entrevistados)
+      sheet=sps.getSheets();//No me ha quedado otra que reasignarlo para que al borrar filas, cambia la variable sheet y la devuelvo aqui a su normalidad
+      enEquipo=values[i][3];
+      normas=values[i][4];
+      nomApes=values[i][2];
+      if(enEquipo=="Trabajar solo" || normas=="Para mí es una imposición"){
+        mensaje="El entrevistado "+nomApes+" ha sido eliminado porque ";//Notificación de que es eliminado un usuario
+        if(enEquipo=="Trabajar solo"){
+          mensaje=mensaje+" no le gusta trabajar en equipo ";
+          if(normas=="Para mí es una imposición"){
+            mensaje=mensaje+"y";
+          }
+        }
+        if(normas=="Para mí es una imposición") {
+          mensaje=mensaje+" no acepta correctamente las normas";
+        }
+        ui.alert(mensaje);//Primero hemos enviado una notificación de que los datos de una persona "nomApes" han sido borrados
+        sheet=sps.getSheets()[0];
+        sheet.deleteRow(i+1);//Elimina a este entrevistado
+        //Hasta aqui si ha marcado una de las respuestas eliminatorias el entrevistado es automaticamente eliminado
+      }else{
+        if(values[i][5]=="NO" && values[i][6]!=0){//Si es apto entra
+          sheet=sps.getSheets()[0];
+          esApto="A"+(i+1)+":G"+(i+1);
+          range=sheet.getRange(esApto);
+          range.setBackground("#90EE90");//#90EE90 <-- verde claro los aptos
+        }
+      }
+    }
+}//Fin Entrevista1
+
+/*
+En la función enviaCorreo quiero que se recojan todos los verdes (o sea, todos los más aptos), en caso de no haberlos
+recogerá la información de todos los no tan aptos pero que al menos no han sido descartados automáticamente
+*/
+function enviaCorreo(){
+  var ui = SpreadsheetApp.getUi();//El interfaz de usuario
+  var sps=SpreadsheetApp.openById("1wflD94N2n-tJ_VzpBpdDV5EKx4bgz_zwO5ihCEddeMc");//Ubicación del sheet
+  var sheet=sps.getSheets();//Referencia a las hojas del sheet
+  var rows=sheet[0].getDataRange();//Definimos la hoja en la que vamos a trabajar y almacenamos los datos de dicha hoja
+    var numRows=rows.getNumRows()-1;//Numero de datos (o sea, numero de filas), -1 para quitar la marca temporal
+    var values=rows.getValues();//Valores almacaenados en cada columna
+  //****************************************
+  /*
+  Obtiene el el color de la casilla en Nombre una a una comprobando si están pintadas de verde o no
+  */
+  var emailEntrevistador=values[0][9];
+  var nomApto="";
+  var hayVerde=false;
+  var range;
+  var esVerde;
+  var i=1;
+  sheet=sps.getSheets()[0];
+  while(i<=numRows){
+    esVerde="A"+(i+1)+":A"+(i+1);
+    range=sheet.getRange(esVerde);
+    if(range.getBackgrounds()=="#90ee90"){//Si está marcado como verde, envía el correo con esos entrevistados
+      nomApto=nomApto+"\n"+values[i][2];
+      hayVerde=true;
+    }
+    i++;
+  }
+  if(values[1]==undefined){
+    ui.alert("No hay datos");
+  }else{
+    if(hayVerde){//Si hay verdes envía estos, sino solo manda un mensaje por pantalla
+      ui.alert("Correo enviado correctamente");
+      GmailApp.sendEmail(emailEntrevistador, "ENTREVISTA FORMULARIO", "A continuación los entrevistados aptos: \n"+nomApto);
+    }else{//Sino envía los que no han sido eliminados
+      ui.alert("No hay aptos, consulte la hoja de calculo para ver otros candidatos");
+    }
+  }
+  //GmailApp.sendEmail(emailEntrevistador, "candidato "+nomApes,"cuerpo" );
+}
+
+function limpiarSheet(){
+  var ui = SpreadsheetApp.getUi();
+  var sps=SpreadsheetApp.openById("1wflD94N2n-tJ_VzpBpdDV5EKx4bgz_zwO5ihCEddeMc");
+  var sheet=sps.getSheets();
+  var rows=sheet[0].getDataRange();
+    var numRows=rows.getNumRows()-1;
+    var values=rows.getValues();
+  //****************************************
+  var i=1;
+  if(values[1]==undefined){
+    ui.alert("No hay datos");
+  }else{
+    while(values[i]!=undefined){
+      i++;
+    }
+    while(i>1){
+      sheet=sps.getSheets()[0];
+      sheet.deleteRow(i);//Borra la fila
+      i--;
+    }
+  }
+}
