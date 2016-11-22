@@ -89,7 +89,7 @@ function enviaCorreo(){
     esVerde="A"+(i+1)+":A"+(i+1);
     range=sheet.getRange(esVerde);
     if(range.getBackgrounds()=="#90ee90"){//Si está marcado como verde, envía el correo con esos entrevistados
-      nomApto=nomApto+"\n"+values[i][2];
+      nomApto=nomApto+"\n"+values[i][2]+"\t"+values[i][11];
       hayVerde=true;
     }
     i++;
